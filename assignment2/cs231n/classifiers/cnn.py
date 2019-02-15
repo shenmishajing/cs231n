@@ -1,9 +1,10 @@
 from builtins import object
+
 import numpy as np
 
-from cs231n.layers import *
 from cs231n.fast_layers import *
 from cs231n.layer_utils import *
+from cs231n.layers import *
 
 
 class ThreeLayerConvNet(object):
@@ -17,8 +18,14 @@ class ThreeLayerConvNet(object):
     channels.
     """
 
-    def __init__(self, input_dim=(3, 32, 32), num_filters=32, filter_size=7,
-                 hidden_dim=100, num_classes=10, weight_scale=1e-3, reg=0.0,
+    def __init__(self,
+                 input_dim=(3, 32, 32),
+                 num_filters=32,
+                 filter_size=7,
+                 hidden_dim=100,
+                 num_classes=10,
+                 weight_scale=1e-3,
+                 reg=0.0,
                  dtype=np.float32):
         """
         Initialize a new network.
@@ -51,16 +58,24 @@ class ThreeLayerConvNet(object):
         # IMPORTANT: For this assignment, you can assume that the padding          #
         # and stride of the first convolutional layer are chosen so that           #
         # **the width and height of the input are preserved**. Take a look at      #
-        # the start of the loss() function to see how that happens.                #                           
+        # the start of the loss() function to see how that happens.                #
         ############################################################################
-        pass
+        (C, H, W) = input_dim
+        self.params['W1'] = np.random.normal(
+            0, weight_scale, (num_filters, C, filter_size, filter_size))
+        self.params['b1'] = np.zeros(num_filters)
+        self.params['W2'] = np.random.normal(
+            0, weight_scale, (num_filters * H * W / 4, hidden_dim))
+        self.params['b2'] = np.zeros(hidden_dim)
+        self.params['W3'] = np.random.normal(0, weight_scale,
+                                             (hidden_dim, num_classes))
+        self.params['b3'] = np.zeros(num_classes)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
-
 
     def loss(self, X, y=None):
         """
@@ -89,7 +104,12 @@ class ThreeLayerConvNet(object):
         # Remember you can use the functions defined in cs231n/fast_layers.py and  #
         # cs231n/layer_utils.py in your implementation (already imported).         #
         ############################################################################
-        pass
+        out1, cache1 = conv_relu_pool_forward(X, W1, b1, conv_param,
+                                              pool_param)
+        cahceshape = out1.shape
+        out1 = out1.reshape(X.shape[0], -1)
+        out2, cache2 = affine_relu_forward(out1, W2, b2)
+        scores, cache3 = affine_forward(out2, W3, b3)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -108,7 +128,17 @@ class ThreeLayerConvNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        pass
+        loss, grad = softmax_loss(scores, y)
+        grad, grads['W3'], grads['b3'] = affine_backward(grad, cache3)
+        grad, grads['W2'], grads['b2'] = affine_relu_backward(grad, cache2)
+        grad = grad.reshape(cahceshape)
+        grad, grads['W1'], grads['b1'] = conv_relu_pool_backward(grad, cache1)
+        loss += self.reg / 2 * (np.sum(self.params['W1'] * self.params['W1']) +
+                                np.sum(self.params['W2'] * self.params['W2']) +
+                                np.sum(self.params['W2'] * self.params['W2']))
+        grads['W1'] += self.reg * self.params['W1']
+        grads['W2'] += self.reg * self.params['W2']
+        grads['W3'] += self.reg * self.params['W3']
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
